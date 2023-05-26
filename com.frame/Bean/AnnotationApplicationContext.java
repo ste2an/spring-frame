@@ -1,9 +1,11 @@
 package Bean;
 
+import annotation.Injection;
 import annotation.Provider;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -44,6 +46,39 @@ public class AnnotationApplicationContext implements ApplicationContext{
             }
         }
 
+        loadDependency();
+
+    }
+
+    private void loadDependency() {
+        // 1. get all object in beanFactory and get all variables in that class
+        for(Map.Entry<Class, Object> entry : beanFactory.entrySet()) {
+            Object obj = entry.getValue();
+            // 1.1 get Class object
+            Class<?> clazz = obj.getClass();
+            // 1.2 get all variables in that class, the return value is an array of fields
+            Field[] fields = clazz.getDeclaredFields();
+
+
+            // 2. loop through all fields and check if there is @Injection annotation on the variable
+            for(Field field : fields) {
+                Injection injection = field.getAnnotation(Injection.class);
+                System.out.println(field.getName());
+
+                if(injection != null) {
+                    // if there is @Injection annotation on the filed
+                    field.setAccessible(true);
+                    // enable access to private field
+
+                    // 3. add the object to the application
+                    try {
+                        field.set(obj, beanFactory.get(field.getType()));
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        }
     }
 
     private void loadBean(File file) throws Exception {
